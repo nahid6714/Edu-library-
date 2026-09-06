@@ -2,6 +2,28 @@
 
 @variant dark (&:where(.dark, .dark *));
 
+html, body {
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Safe area insets for Android gesture navigation and modern devices */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-bottom-content {
+  padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Fixed element GPU stabilization against jump & flicker */
+.gpu-stabilized {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
 @keyframes marquee {
   0% {
     transform: translateX(0%);
@@ -15,3 +37,4 @@
   display: inline-block;
   animation: marquee 22s linear infinite;
 }
+

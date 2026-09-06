@@ -53,10 +53,52 @@ function MainApp() {
   const [isAiScannerOpen, setIsAiScannerOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  // GitHub In-App Auto Update State
+  // In-App Auto Update State
   const [appUpdateInfo, setAppUpdateInfo] = useState<AppUpdateInfo | null>(null);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
+
+  // Virtual Keyboard & Viewport Shift Prevention on Mobile
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+
+  useEffect(() => {
+    const handleViewport = () => {
+      if (window.visualViewport) {
+        const diff = window.innerHeight - window.visualViewport.height;
+        setIsKeyboardOpen(diff > 140);
+      }
+    };
+
+    const handleFocusIn = (e: FocusEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)
+      ) {
+        if (window.innerWidth <= 768) {
+          setIsKeyboardOpen(true);
+        }
+      }
+    };
+
+    const handleFocusOut = () => {
+      setIsKeyboardOpen(false);
+    };
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", handleViewport);
+    }
+    window.addEventListener("focusin", handleFocusIn);
+    window.addEventListener("focusout", handleFocusOut);
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", handleViewport);
+      }
+      window.removeEventListener("focusin", handleFocusIn);
+      window.removeEventListener("focusout", handleFocusOut);
+    };
+  }, []);
 
   // Double Back Press Exit Confirmation State
   const [showExitToast, setShowExitToast] = useState(false);
@@ -232,7 +274,7 @@ function MainApp() {
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 lg:p-8 pt-1 min-h-[70vh]">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 lg:p-8 pt-1 min-h-[70vh] safe-area-bottom-content">
         {activeTab === "home" && (
           <HomeView
             onSelectFile={(f) => setSelectedFile(f)}
@@ -302,13 +344,20 @@ function MainApp() {
 
       {/* Bottom 5-Tab Navigation Bar */}
       <nav
-        className={`fixed bottom-0 left-0 right-0 z-40 backdrop-blur-xl border-t transition-colors duration-200 shadow-2xl ${
+        id="bottom-navigation-bar"
+        className={`fixed bottom-0 left-0 right-0 z-40 backdrop-blur-xl border-t transition-all duration-200 safe-area-bottom gpu-stabilized ${
+          isKeyboardOpen ? "translate-y-full opacity-0 pointer-events-none" : "translate-y-0 opacity-100 shadow-2xl"
+        } ${
           theme === "dark"
             ? "bg-[#0d1322]/95 border-slate-800/90 text-slate-400"
             : "bg-white/95 border-slate-200 text-slate-600 shadow-lg"
         }`}
+        style={{
+          bottom: 0,
+          willChange: "transform",
+        }}
       >
-        <div className="max-w-md mx-auto flex items-center justify-around h-16 px-2">
+        <div className="max-w-md mx-auto flex items-center justify-around h-16 px-2 select-none">
           
           {/* 1. Home */}
           <button
