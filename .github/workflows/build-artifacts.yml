@@ -3,8 +3,6 @@ name: Build & Auto-Release Android APK
 on:
   push:
     branches: [ main, master ]
-    tags:
-      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -29,7 +27,7 @@ jobs:
       - name: Setup Java JDK for Android
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: 21
 
       - name: Setup Gradle
@@ -38,78 +36,100 @@ jobs:
           gradle-version: '8.13'
           validate-wrappers: false
 
-      - name: Generate Dynamic Version & Tag
+      - name: Calculate Release Version
         id: vars
+        shell: bash
         run: |
           BUILD_NUM="${{ github.run_number }}"
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            TAG="${{ github.ref_name }}"
-            VER="${TAG#v}"
-          else
-            TAG="v1.0.${BUILD_NUM}"
-            VER="1.0.${BUILD_NUM}"
-          fi
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "version=${VER}" >> $GITHUB_OUTPUT
-          echo "build_num=${BUILD_NUM}" >> $GITHUB_OUTPUT
-          echo "Generated version: ${VER}, Tag: ${TAG}, Build: ${BUILD_NUM}"
+          TAG="v1.0.${BUILD_NUM}"
+          VER="1.0.${BUILD_NUM}"
+
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VER}" >> "$GITHUB_OUTPUT"
+          echo "version_code=${BUILD_NUM}" >> "$GITHUB_OUTPUT"
+          echo "Generated version: ${VER}, tag: ${TAG}, versionCode: ${BUILD_NUM}"
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build Web Dist
+        env:
+          VITE_APP_VERSION: ${{ steps.vars.outputs.version }}
         run: npm run build
 
       - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Build Android APK
+      - name: Decode Release Keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "ERROR: Missing GitHub secret ANDROID_KEYSTORE_BASE64."
+            echo "Create one release keystore and store its base64 content in GitHub Secrets before publishing updates."
+            exit 1
+          fi
+          mkdir -p android/keystore
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/keystore/release.keystore
+
+      - name: Build Signed Release APK
+        env:
+          APP_VERSION: ${{ steps.vars.outputs.version }}
+          APP_VERSION_CODE: ${{ steps.vars.outputs.version_code }}
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android/keystore/release.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           cd android
-          # Delete any corrupted gradle-wrapper.jar checked out from git
-          rm -f gradle/wrapper/gradle-wrapper.jar
-          
-          # Regenerate clean wrapper using the installed Gradle 8.13
-          gradle wrapper --gradle-version 8.13 --distribution-type bin || true
-          chmod +x gradlew || true
-          
-          # Build APK with gradlew, or fallback directly to gradle CLI
-          if [ -f gradle/wrapper/gradle-wrapper.jar ]; then
-            ./gradlew assembleDebug --no-daemon --stacktrace || gradle assembleDebug --no-daemon --stacktrace
-          else
-            gradle assembleDebug --no-daemon --stacktrace
-          fi
+          ./gradlew clean assembleRelease --no-daemon --stacktrace
 
       - name: Prepare Release Assets
+        env:
+          RELEASE_VERSION: ${{ steps.vars.outputs.version }}
+          RELEASE_TAG: ${{ steps.vars.outputs.tag }}
+          VERSION_CODE: ${{ steps.vars.outputs.version_code }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           mkdir -p release-assets
-          APK_FILE="android/app/build/outputs/apk/debug/app-debug.apk"
-          if [ -f "$APK_FILE" ]; then
-            cp "$APK_FILE" release-assets/EduLibrary-latest.apk
-            cp "$APK_FILE" "release-assets/EduLibrary-${{ steps.vars.outputs.tag }}.apk"
-          else
-            echo "Error: APK not found at $APK_FILE"
+          APK_FILE="android/app/build/outputs/apk/release/app-release.apk"
+
+          if [ ! -f "$APK_FILE" ]; then
+            echo "Error: signed release APK not found at $APK_FILE"
             exit 1
           fi
 
-          # Generate updated version.json for this release
-          node -e "
-            const fs = require('fs');
-            const v = '${{ steps.vars.outputs.version }}';
-            const tag = '${{ steps.vars.outputs.tag }}';
-            const repo = '${{ github.repository }}';
+          cp "$APK_FILE" release-assets/EduLibrary-latest.apk
+          cp "$APK_FILE" "release-assets/EduLibrary-${RELEASE_TAG}.apk"
+
+          node -e '
+            const fs = require("fs");
             const info = {
-              version: v,
-              versionCode: Number('${{ steps.vars.outputs.build_num }}'),
-              title: 'Edu Library ' + tag + ' (Official Build #' + '${{ steps.vars.outputs.build_num }}' + ')',
-              releaseNotes: 'স্বয়ংক্রিয় এপিকে রিলিজ • Auto-built APK on push • Build #' + '${{ steps.vars.outputs.build_num }}',
-              apkDownloadUrl: 'https://github.com/' + repo + '/releases/download/' + tag + '/EduLibrary-latest.apk',
-              htmlUrl: 'https://github.com/' + repo + '/releases/tag/' + tag,
+              version: process.env.RELEASE_VERSION,
+              versionCode: Number(process.env.VERSION_CODE),
+              title: `Edu Library ${process.env.RELEASE_TAG}`,
+              releaseNotes: "নতুন ফিচার, বাগ ফিক্স ও পারফরম্যান্স উন্নতি।",
+              apkDownloadUrl: `https://github.com/${process.env.REPOSITORY}/releases/download/${process.env.RELEASE_TAG}/EduLibrary-latest.apk`,
+              htmlUrl: `https://github.com/${process.env.REPOSITORY}/releases/tag/${process.env.RELEASE_TAG}`,
               publishedAt: new Date().toISOString()
             };
-            fs.writeFileSync('release-assets/version.json', JSON.stringify(info, null, 2));
-            fs.writeFileSync('version.json', JSON.stringify(info, null, 2));
-          "
+            fs.writeFileSync("release-assets/version.json", JSON.stringify(info, null, 2));
+            const text = JSON.stringify(info, null, 2) + "\n";
+            fs.writeFileSync("version.json", text);
+            fs.writeFileSync("public/version.json", text);
+          '
+
+      - name: Publish version.json to repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add version.json public/version.json
+          if git diff --cached --quiet; then
+            echo "version.json is already up to date."
+          else
+            git commit -m "chore: update app version metadata [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
 
       - name: Upload Android APK Artifact
         uses: actions/upload-artifact@v4
@@ -118,42 +138,30 @@ jobs:
           path: release-assets/EduLibrary-latest.apk
           retention-days: 30
 
-      - name: Upload Web Dist Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: EduLibrary-WebApp-Dist-${{ steps.vars.outputs.tag }}
-          path: dist/
-          retention-days: 30
-
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.vars.outputs.tag }}
-          name: Edu Library ${{ steps.vars.outputs.tag }} (Auto APK Release)
+          name: Edu Library ${{ steps.vars.outputs.tag }}
           body: |
-            ## 📱 Edu Library - Android App Release (${{ steps.vars.outputs.tag }})
-            
-            স্বয়ংক্রিয়ভাবে তৈরি হওয়া নতুন অ্যান্ড্রয়েড অ্যাপ রিলিজ (Build #${{ steps.vars.outputs.build_num }}).
-            
-            ### ⬇️ সরাসরি ডাউনলোড লিংক:
-            - **[EduLibrary-latest.apk](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/EduLibrary-latest.apk)**
-            - **[EduLibrary-${{ steps.vars.outputs.tag }}.apk](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/EduLibrary-${{ steps.vars.outputs.tag }}.apk)**
-            
-            ---
-            ### 🛠️ ফোনে ইনস্টল করার নিয়ম:
-            1. উপরের লিঙ্কে ক্লিক করে **`EduLibrary-latest.apk`** ডাউনলোড করুন।
-            2. ফাইলটিতে ট্যাপ করে **Install** এ চাপুন।
-            3. ইনস্টল সম্পন্ন হলে সরাসরি আপনার ফোনে Edu Library অ্যাপটি চালু করুন!
+            ## 📱 Edu Library ${{ steps.vars.outputs.tag }}
+
+            নতুন signed Android APK release.
+
+            **Version:** ${{ steps.vars.outputs.version }}
+            **Version Code:** ${{ steps.vars.outputs.version_code }}
+
+            ### APK
+            - `EduLibrary-latest.apk` — current release APK
+            - `EduLibrary-${{ steps.vars.outputs.tag }}.apk` — versioned copy
+            - `version.json` — update metadata
           draft: false
           prerelease: false
           make_latest: true
           generate_release_notes: true
-          fail_on_unmatched_files: false
           files: |
             release-assets/EduLibrary-latest.apk
             release-assets/EduLibrary-${{ steps.vars.outputs.tag }}.apk
             release-assets/version.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-

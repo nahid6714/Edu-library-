@@ -1,9 +1,10 @@
 import { AppUpdateInfo } from "../types";
 
-export const CURRENT_APP_VERSION = "1.0.0";
+// The CI build injects VITE_APP_VERSION. Local/dev builds fall back to 1.0.0.
+export const CURRENT_APP_VERSION =
+  (import.meta.env.VITE_APP_VERSION || "1.0.0").replace(/^v/i, "").trim();
 export const DEFAULT_GITHUB_REPO = "mdnahidislam6714/edu-library";
 
-// Helper to sanitize and compare semver strings e.g. "v1.1.0" vs "1.0.0"
 export function compareVersions(remoteVer: string, currentVer: string): number {
   const cleanRemote = remoteVer.replace(/^v/i, "").trim();
   const cleanCurrent = currentVer.replace(/^v/i, "").trim();
@@ -39,7 +40,6 @@ export function isUpdateDismissed(version: string): boolean {
     const dismissed = localStorage.getItem("edu_dismissed_update");
     if (!dismissed) return false;
     const data = JSON.parse(dismissed);
-    // If it's the same version and dismissed less than 24 hours ago
     if (data.version === version && Date.now() - data.timestamp < 24 * 60 * 60 * 1000) {
       return true;
     }
@@ -57,17 +57,16 @@ export function dismissUpdate(version: string): void {
 }
 
 /**
- * Fetch update info without API rate limits using static raw GitHub JSON / CDN URLs.
- * Falls back to GitHub Releases API only if static JSON is not found.
+ * Check the public version.json first (no GitHub API rate-limit dependency),
+ * then fall back to the latest GitHub Release API response.
  */
 export async function checkAppUpdate(
   customRepo?: string,
   ignoreCache = false
 ): Promise<AppUpdateInfo> {
   const repo = customRepo || getStoredGithubRepo();
+  const cacheKey = `edu_update_cache_${repo}_${CURRENT_APP_VERSION}`;
 
-  // Cache check for 10 minutes unless forced
-  const cacheKey = `edu_update_cache_${repo}`;
   if (!ignoreCache) {
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
@@ -77,73 +76,69 @@ export async function checkAppUpdate(
           return data as AppUpdateInfo;
         }
       } catch {
-        // Cache parse failure, ignore
+        // Ignore malformed cache.
       }
     }
   }
 
-  // 1. First Priority: Unlimited Static JSON from raw.githubusercontent.com / CDN
-  // (Zero API limit, works for infinite users without any restrictions)
   const timestampQuery = `?t=${Date.now()}`;
   const staticUrls = [
     `https://raw.githubusercontent.com/${repo}/main/version.json${timestampQuery}`,
     `https://raw.githubusercontent.com/${repo}/master/version.json${timestampQuery}`,
-    `https://cdn.jsdelivr.net/gh/${repo}@main/version.json`,
+    `https://cdn.jsdelivr.net/gh/${repo}@main/version.json${timestampQuery}`,
   ];
 
   for (const url of staticUrls) {
     try {
       const res = await fetch(url, { cache: "no-store" });
-      if (res.ok) {
-        const json = await res.json();
-        if (json && json.version) {
-          const hasUpdate = compareVersions(json.version, CURRENT_APP_VERSION) > 0;
-          const updateInfo: AppUpdateInfo = {
-            hasUpdate,
-            currentVersion: CURRENT_APP_VERSION,
-            latestVersion: json.version.startsWith("v") ? json.version : `v${json.version}`,
-            releaseTitle: json.title || `Edu Library v${json.version}`,
-            releaseNotes: json.releaseNotes || "",
-            apkDownloadUrl:
-              json.apkDownloadUrl ||
-              `https://github.com/${repo}/releases/download/latest-release/EduLibrary-latest.apk`,
-            publishedAt: json.publishedAt || new Date().toISOString(),
-            htmlUrl: json.htmlUrl || `https://github.com/${repo}/releases`,
-          };
+      if (!res.ok) continue;
 
-          localStorage.setItem(
-            cacheKey,
-            JSON.stringify({ data: updateInfo, timestamp: Date.now() })
-          );
-          return updateInfo;
-        }
-      }
+      const json = await res.json();
+      if (!json || !json.version) continue;
+
+      const latestVersion = String(json.version).replace(/^v/i, "").trim();
+      const updateInfo: AppUpdateInfo = {
+        hasUpdate: compareVersions(latestVersion, CURRENT_APP_VERSION) > 0,
+        currentVersion: CURRENT_APP_VERSION,
+        latestVersion: `v${latestVersion}`,
+        releaseTitle: json.title || `Edu Library v${latestVersion}`,
+        releaseNotes: json.releaseNotes || "",
+        apkDownloadUrl:
+          json.apkDownloadUrl ||
+          `https://github.com/${repo}/releases/download/${`v${latestVersion}`}/EduLibrary-latest.apk`,
+        publishedAt: json.publishedAt || new Date().toISOString(),
+        htmlUrl: json.htmlUrl || `https://github.com/${repo}/releases`,
+      };
+
+      localStorage.setItem(
+        cacheKey,
+        JSON.stringify({ data: updateInfo, timestamp: Date.now() })
+      );
+      return updateInfo;
     } catch {
-      // Continue to next URL
+      // Try the next static source.
     }
   }
 
-  // 2. Secondary Fallback: GitHub Releases API (used only if version.json is not yet uploaded)
   try {
     const response = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, {
-      headers: {
-        Accept: "application/vnd.github.v3+json",
-      },
+      headers: { Accept: "application/vnd.github.v3+json" },
+      cache: "no-store",
     });
 
     if (response.ok) {
       const data = await response.json();
       const tagName: string = data.tag_name || "";
-      const hasUpdate = compareVersions(tagName, CURRENT_APP_VERSION) > 0;
-
+      const latestVersion = tagName.replace(/^v/i, "").trim();
       let apkUrl = "";
-      if (Array.isArray(data.assets) && data.assets.length > 0) {
-        const apkAsset = data.assets.find((a: { name?: string; browser_download_url?: string }) =>
-          a.name?.toLowerCase().endsWith(".apk")
+
+      if (Array.isArray(data.assets)) {
+        const apkAsset = data.assets.find(
+          (a: { name?: string; browser_download_url?: string }) =>
+            a.name?.toLowerCase().endsWith(".apk") &&
+            Boolean(a.browser_download_url)
         );
-        if (apkAsset && apkAsset.browser_download_url) {
-          apkUrl = apkAsset.browser_download_url;
-        }
+        apkUrl = apkAsset?.browser_download_url || "";
       }
 
       if (!apkUrl && tagName) {
@@ -151,12 +146,12 @@ export async function checkAppUpdate(
       }
 
       const updateInfo: AppUpdateInfo = {
-        hasUpdate,
+        hasUpdate: Boolean(latestVersion) && compareVersions(latestVersion, CURRENT_APP_VERSION) > 0,
         currentVersion: CURRENT_APP_VERSION,
-        latestVersion: tagName || CURRENT_APP_VERSION,
+        latestVersion: latestVersion ? `v${latestVersion}` : `v${CURRENT_APP_VERSION}`,
         releaseTitle: data.name || `Release ${tagName}`,
         releaseNotes: data.body || "",
-        apkDownloadUrl: apkUrl,
+        apkDownloadUrl: apkUrl || `https://github.com/${repo}/releases`,
         publishedAt: data.published_at || new Date().toISOString(),
         htmlUrl: data.html_url || `https://github.com/${repo}/releases`,
       };
@@ -174,7 +169,7 @@ export async function checkAppUpdate(
   return {
     hasUpdate: false,
     currentVersion: CURRENT_APP_VERSION,
-    latestVersion: CURRENT_APP_VERSION,
+    latestVersion: `v${CURRENT_APP_VERSION}`,
     releaseTitle: "Current",
     releaseNotes: "",
     apkDownloadUrl: `https://github.com/${repo}/releases`,
@@ -182,4 +177,3 @@ export async function checkAppUpdate(
     htmlUrl: `https://github.com/${repo}/releases`,
   };
 }
-
