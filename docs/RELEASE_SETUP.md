@@ -46,3 +46,19 @@ For PowerShell, the base64 value can be copied with:
 The signing keystore is part of the app's identity. Losing it means future APKs cannot be installed as updates over APKs signed with that key.
 
 The first APK distributed to users must also be signed with this same release keystore. The old workflow used `assembleDebug`, so an APK produced by that old workflow may **not** be upgradeable to the new signed-release APK. If that old APK is already installed, uninstall/reinstall the first signed release once (which can clear app data).
+
+
+## 4. If GitHub Actions says "Failed to read key from store"
+
+This means the keystore file was decoded, but the store password, alias, or private-key password does not match.
+
+The workflow now validates all three before Gradle starts. Fix the GitHub Actions secrets rather than creating a new keystore:
+
+- `ANDROID_KEYSTORE_BASE64` = base64 of the exact release keystore
+- `ANDROID_KEYSTORE_PASSWORD` = keystore password
+- `ANDROID_KEY_ALIAS` = exact alias shown by `keytool -list`
+- `ANDROID_KEY_PASSWORD` = password of that alias/private key
+
+Do not print these values in workflow logs.
+
+If the original APK is already installed on users' phones, keep using the original signing keystore. A newly generated keystore will not be able to update an APK signed with the old key.
