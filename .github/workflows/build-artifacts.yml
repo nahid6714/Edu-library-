@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -36,6 +38,22 @@ jobs:
           gradle-version: '8.13'
           validate-wrappers: false
 
+      - name: Generate Dynamic Version & Tag
+        id: vars
+        run: |
+          BUILD_NUM="${{ github.run_number }}"
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG="${{ github.ref_name }}"
+            VER="${TAG#v}"
+          else
+            TAG="v1.0.${BUILD_NUM}"
+            VER="1.0.${BUILD_NUM}"
+          fi
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "version=${VER}" >> $GITHUB_OUTPUT
+          echo "build_num=${BUILD_NUM}" >> $GITHUB_OUTPUT
+          echo "Generated version: ${VER}, Tag: ${TAG}, Build: ${BUILD_NUM}"
+
       - name: Install Dependencies
         run: npm install
 
@@ -48,58 +66,89 @@ jobs:
       - name: Build Android APK
         run: |
           cd android
-          gradle wrapper --gradle-version 8.13
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          chmod +x gradlew || true
+          if [ -f gradlew ]; then
+            ./gradlew assembleDebug
+          else
+            gradle wrapper --gradle-version 8.13
+            chmod +x gradlew
+            ./gradlew assembleDebug
+          fi
 
       - name: Prepare Release Assets
         run: |
           mkdir -p release-assets
-          cp android/app/build/outputs/apk/debug/app-debug.apk release-assets/EduLibrary-latest.apk
-          cp android/app/build/outputs/apk/debug/app-debug.apk release-assets/EduLibrary-v1.0.apk
-          cp version.json release-assets/version.json || true
+          APK_FILE="android/app/build/outputs/apk/debug/app-debug.apk"
+          if [ -f "$APK_FILE" ]; then
+            cp "$APK_FILE" release-assets/EduLibrary-latest.apk
+            cp "$APK_FILE" "release-assets/EduLibrary-${{ steps.vars.outputs.tag }}.apk"
+          else
+            echo "Error: APK not found at $APK_FILE"
+            exit 1
+          fi
+
+          # Generate updated version.json for this release
+          node -e "
+            const fs = require('fs');
+            const v = '${{ steps.vars.outputs.version }}';
+            const tag = '${{ steps.vars.outputs.tag }}';
+            const repo = '${{ github.repository }}';
+            const info = {
+              version: v,
+              versionCode: Number('${{ steps.vars.outputs.build_num }}'),
+              title: 'Edu Library ' + tag + ' (Official Build #' + '${{ steps.vars.outputs.build_num }}' + ')',
+              releaseNotes: 'স্বয়ংক্রিয় এপিকে রিলিজ • Auto-built APK on push • Build #' + '${{ steps.vars.outputs.build_num }}',
+              apkDownloadUrl: 'https://github.com/' + repo + '/releases/download/' + tag + '/EduLibrary-latest.apk',
+              htmlUrl: 'https://github.com/' + repo + '/releases/tag/' + tag,
+              publishedAt: new Date().toISOString()
+            };
+            fs.writeFileSync('release-assets/version.json', JSON.stringify(info, null, 2));
+            fs.writeFileSync('version.json', JSON.stringify(info, null, 2));
+          "
 
       - name: Upload Android APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: EduLibrary-Android-APK
+          name: EduLibrary-Android-APK-${{ steps.vars.outputs.tag }}
           path: release-assets/EduLibrary-latest.apk
           retention-days: 30
 
       - name: Upload Web Dist Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: EduLibrary-WebApp-Dist
+          name: EduLibrary-WebApp-Dist-${{ steps.vars.outputs.tag }}
           path: dist/
           retention-days: 30
 
       - name: Publish to GitHub Releases
-        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
-          name: ${{ startsWith(github.ref, 'refs/tags/') && format('Edu Library {0}', github.ref_name) || 'Edu Library - Official Android APK (v1.0.0)' }}
+          tag_name: ${{ steps.vars.outputs.tag }}
+          name: Edu Library ${{ steps.vars.outputs.tag }} (Auto APK Release)
           body: |
-            ## 📱 Edu Library - Android App (Auto Release)
+            ## 📱 Edu Library - Android App Release (${{ steps.vars.outputs.tag }})
             
-            স্বয়ংক্রিয়ভাবে তৈরি হওয়া অ্যান্ড্রয়েড অ্যাপ রিলিজ (Auto-built APK via GitHub Actions).
+            স্বয়ংক্রিয়ভাবে তৈরি হওয়া নতুন অ্যান্ড্রয়েড অ্যাপ রিলিজ (Build #${{ steps.vars.outputs.build_num }}).
             
             ### ⬇️ সরাসরি ডাউনলোড লিংক:
-            - **[EduLibrary-latest.apk](https://github.com/${{ github.repository }}/releases/download/${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}/EduLibrary-latest.apk)**
-            - **[EduLibrary-v1.0.apk](https://github.com/${{ github.repository }}/releases/download/${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}/EduLibrary-v1.0.apk)**
-
+            - **[EduLibrary-latest.apk](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/EduLibrary-latest.apk)**
+            - **[EduLibrary-${{ steps.vars.outputs.tag }}.apk](https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.tag }}/EduLibrary-${{ steps.vars.outputs.tag }}.apk)**
+            
             ---
-            ### 🛠️ যেভাবে ফোনে ইনস্টল করবেন:
+            ### 🛠️ ফোনে ইনস্টল করার নিয়ম:
             1. উপরের লিঙ্কে ক্লিক করে **`EduLibrary-latest.apk`** ডাউনলোড করুন।
             2. ফাইলটিতে ট্যাপ করে **Install** এ চাপুন।
-            3. যদি "Install unknown apps" সতর্কবার্তা দেখায়, তবে Settings থেকে আপনার ব্রাউজারটিকে অনুমতি (Allow from this source) দিন।
-            4. ইনস্টল সম্পন্ন হলে সরাসরি আপনার ফোনে Edu Library অ্যাপটি চালু করুন!
+            3. ইনস্টল সম্পন্ন হলে সরাসরি আপনার ফোনে Edu Library অ্যাপটি চালু করুন!
           draft: false
           prerelease: false
+          make_latest: true
+          generate_release_notes: true
+          fail_on_unmatched_files: false
           files: |
             release-assets/EduLibrary-latest.apk
-            release-assets/EduLibrary-v1.0.apk
+            release-assets/EduLibrary-${{ steps.vars.outputs.tag }}.apk
             release-assets/version.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
