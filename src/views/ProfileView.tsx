@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import { Role, EduFile, AppUpdateInfo } from "../types";
+import { EduLogo } from "../components/EduLogo";
 import {
   CURRENT_APP_VERSION,
   getStoredGithubRepo,
@@ -371,11 +372,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             }`}
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Smartphone className="w-4 h-4 text-sky-500" />
-                <span className="font-bold text-xs">
-                  {lang === "bn" ? "অ্যাপ সংস্করণ ও অটো আপডেট" : "App Version & Auto Updates"}
-                </span>
+              <div className="flex items-center space-x-2.5">
+                <EduLogo variant="icon" size="sm" />
+                <div>
+                  <span className="font-bold text-xs block">
+                    {lang === "bn" ? "Edu Library অ্যাপ সংস্করণ ও অটো আপডেট" : "Edu Library App & Auto Updates"}
+                  </span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                    {lang === "bn" ? "অফিসিয়াল রিলিজ ও আইকন" : "Official Release & Icon"}
+                  </span>
+                </div>
               </div>
               <span className="bg-sky-500/10 text-sky-500 border border-sky-500/30 px-2.5 py-0.5 rounded-md text-[10px] font-black">
                 v{CURRENT_APP_VERSION}

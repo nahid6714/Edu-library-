@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import newLogoImg from "../assets/images/edu_library_logo_1788697896446.jpg";
 import logoImg from "../assets/logo.jpg";
 import logoPng from "../assets/logo.png";
 
@@ -47,7 +48,7 @@ export const EduLogo: React.FC<EduLogoProps> = ({
     </div>
   );
 
-  const logoSrc = logoPng || logoImg || "/logo.png";
+  const logoSrc = newLogoImg || logoPng || logoImg || "/logo.png";
 
   if (variant === "icon") {
     return (
@@ -56,6 +57,7 @@ export const EduLogo: React.FC<EduLogoProps> = ({
           <img
             src={logoSrc}
             alt="Edu Library Logo"
+            referrerPolicy="no-referrer"
             onError={() => setImgFailed(true)}
             className={`${imgSizeClass} object-cover rounded-xl shadow-md border border-slate-200/50 dark:border-slate-800/80 bg-white`}
           />
@@ -74,6 +76,7 @@ export const EduLogo: React.FC<EduLogoProps> = ({
             <img
               src={logoSrc}
               alt="Edu Library Logo"
+              referrerPolicy="no-referrer"
               onError={() => setImgFailed(true)}
               className={`${sizeClasses.xl} object-cover rounded-2xl shadow-xl border border-slate-200/80 dark:border-slate-700/80 bg-white`}
             />
@@ -106,6 +109,7 @@ export const EduLogo: React.FC<EduLogoProps> = ({
           <img
             src={logoSrc}
             alt="Edu Library Logo"
+            referrerPolicy="no-referrer"
             onError={() => setImgFailed(true)}
             className={`${imgSizeClass} object-cover rounded-xl shadow-md border border-slate-200/60 dark:border-slate-800 bg-white p-0.5`}
           />
