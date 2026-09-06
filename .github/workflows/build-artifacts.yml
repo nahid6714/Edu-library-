@@ -1,0 +1,64 @@
+name: Build & Upload App & Android APK Artifacts
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Android APK & Web App
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java JDK for Android
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 21
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+          validate-wrappers: false
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Web Dist
+        run: npm run build
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      - name: Build Android Debug APK
+        run: |
+          cd android
+          gradle wrapper --gradle-version 8.13
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload Android APK Artifact (Installable on Phone)
+        uses: actions/upload-artifact@v4
+        with:
+          name: EduLibrary-Android-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Upload Web Dist Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EduLibrary-WebApp-Dist
+          path: dist/
+          retention-days: 30

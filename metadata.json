@@ -1,0 +1,6 @@
+{
+  "name": "Edu Library",
+  "description": "Educational Digital Library Platform for Bangladesh (SSC, HSC, Honours, Masters, BCS & Job prep) with moderated uploads, document sharing, and AI study assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

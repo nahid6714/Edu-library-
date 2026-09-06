@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: inline-block;
+  animation: marquee 22s linear infinite;
+}
