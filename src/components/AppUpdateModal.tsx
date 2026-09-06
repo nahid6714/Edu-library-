@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { AppUpdateInfo } from "../types";
 import { dismissUpdate } from "../services/updateService";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import {
   DownloadCloud,
   Sparkles,
@@ -12,6 +13,12 @@ import {
   ArrowUpRight,
   ShieldCheck,
 } from "lucide-react";
+
+interface InAppUpdaterPlugin {
+  installApk(options: { url: string }): Promise<{ status: string }>;
+}
+
+const InAppUpdater = registerPlugin<InAppUpdaterPlugin>("InAppUpdater");
 
 interface AppUpdateModalProps {
   updateInfo: AppUpdateInfo | null;
@@ -29,19 +36,39 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({
 
   if (!isOpen || !updateInfo) return null;
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
+    if (!updateInfo.apkDownloadUrl) return;
+
     setDownloadInitiated(true);
-    // Trigger download
-    if (updateInfo.apkDownloadUrl) {
-      const link = document.createElement("a");
-      link.href = updateInfo.apkDownloadUrl;
-      link.setAttribute("download", "EduLibrary-latest.apk");
-      link.setAttribute("target", "_blank");
-      link.setAttribute("rel", "noopener noreferrer");
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+
+    // Native Android: download the APK inside the app and open the
+    // Android package installer directly. This avoids opening GitHub/browser.
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const result = await InAppUpdater.installApk({
+          url: updateInfo.apkDownloadUrl,
+        });
+
+        if (result?.status === "permission_required") {
+          setDownloadInitiated(false);
+          return;
+        }
+        return;
+      } catch (error) {
+        console.error("In-app update failed:", error);
+        setDownloadInitiated(false);
+      }
     }
+
+    // Web/PWA fallback.
+    const link = document.createElement("a");
+    link.href = updateInfo.apkDownloadUrl;
+    link.setAttribute("download", "EduLibrary-latest.apk");
+    link.setAttribute("target", "_blank");
+    link.setAttribute("rel", "noopener noreferrer");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleDismiss = () => {
@@ -175,8 +202,8 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({
               <DownloadCloud className="w-4 h-4" />
               <span>
                 {lang === "bn"
-                  ? "এখনই ডাউনলোড ও আপডেট করুন (APK)"
-                  : "Download & Install Update (APK)"}
+                  ? "অ্যাপের ভেতর থেকেই আপডেট করুন"
+                  : "Update from inside the app"}
               </span>
             </button>
 
