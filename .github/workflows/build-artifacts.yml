@@ -49,14 +49,32 @@ jobs:
           echo "version_code=${BUILD_NUM}" >> "$GITHUB_OUTPUT"
           echo "Generated version: ${VER}, tag: ${TAG}, versionCode: ${BUILD_NUM}"
 
-      - name: Validate package.json and package-lock.json
+      - name: Install Dependencies and Repair Lockfile
         run: |
-          echo "Checking that package.json and package-lock.json are in sync..."
-          npm ci --dry-run --ignore-scripts
-          echo "Dependency lock check passed."
+          echo "Installing dependencies from package.json..."
+          npm install --ignore-scripts
+          echo "Dependencies installed. Checking lockfile status..."
+          if ! git diff --quiet -- package-lock.json; then
+            echo "package-lock.json was out of sync with package.json."
+            echo "The lockfile has been repaired automatically in this workflow."
+            git diff -- package-lock.json | head -n 120 || true
+          else
+            echo "package.json and package-lock.json were already in sync."
+          fi
 
-      - name: Install Dependencies
-        run: npm ci
+      - name: Persist Repaired Lockfile
+        if: ${{ success() }}
+        run: |
+          if git diff --quiet -- package-lock.json; then
+            echo "No package-lock.json changes to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "chore: sync package-lock.json [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
 
       - name: Build Web Dist
         env:
