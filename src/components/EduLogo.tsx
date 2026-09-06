@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import newLogoImg from "../assets/images/edu_library_logo_1788697896446.jpg";
-import logoImg from "../assets/logo.jpg";
 import logoPng from "../assets/logo.png";
+import logoJpg from "../assets/logo.jpg";
+import rawNewLogoImg from "../assets/images/edu_library_logo_1788697896446.jpg";
 
 interface EduLogoProps {
   variant?: "full" | "icon" | "horizontal";
@@ -16,7 +16,17 @@ export const EduLogo: React.FC<EduLogoProps> = ({
   className = "",
   showSubtitle = true,
 }) => {
-  const [imgFailed, setImgFailed] = useState(false);
+  // Source candidate hierarchy for maximum reliability in Web, PWA and Android WebView
+  const sources = [
+    logoPng,
+    "/logo.png",
+    rawNewLogoImg,
+    logoJpg,
+    "/logo.jpg",
+  ].filter(Boolean) as string[];
+
+  const [srcIndex, setSrcIndex] = useState(0);
+  const [allFailed, setAllFailed] = useState(false);
 
   // Size mapping
   const sizeClasses = {
@@ -28,19 +38,27 @@ export const EduLogo: React.FC<EduLogoProps> = ({
 
   const imgSizeClass = sizeClasses[size] || sizeClasses.md;
 
-  // Fallback SVG graphic if custom logo image doesn't load
+  const handleImageError = () => {
+    if (srcIndex < sources.length - 1) {
+      setSrcIndex((prev) => prev + 1);
+    } else {
+      setAllFailed(true);
+    }
+  };
+
+  // High-fidelity branded SVG graphic fallback matching the official logo
   const renderFallbackSvg = (sizeClass: string) => (
     <div
-      className={`${sizeClass} rounded-xl bg-gradient-to-tr from-[#0d3b66] via-blue-700 to-[#2e9e42] p-1.5 shadow-md flex items-center justify-center shrink-0 border border-sky-400/30 text-white`}
+      className={`${sizeClass} rounded-2xl bg-gradient-to-br from-[#061938] via-[#0d2a58] to-[#0284c7] p-2 shadow-lg flex flex-col items-center justify-center shrink-0 border border-sky-400/40 text-white select-none`}
     >
       <svg
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        strokeWidth="2"
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="w-full h-full"
+        className="w-full h-full drop-shadow text-sky-300"
       >
         <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
         <path d="M6 12v5c3 3 9 3 12 0v-5" />
@@ -48,18 +66,18 @@ export const EduLogo: React.FC<EduLogoProps> = ({
     </div>
   );
 
-  const logoSrc = newLogoImg || logoPng || logoImg || "/logo.png";
+  const currentSrc = sources[srcIndex] || "/logo.png";
 
   if (variant === "icon") {
     return (
       <div className={`relative flex items-center justify-center shrink-0 ${className}`}>
-        {!imgFailed ? (
+        {!allFailed ? (
           <img
-            src={logoSrc}
-            alt="Edu Library Logo"
+            src={currentSrc}
+            alt="Edu Library Icon"
             referrerPolicy="no-referrer"
-            onError={() => setImgFailed(true)}
-            className={`${imgSizeClass} object-cover rounded-xl shadow-md border border-slate-200/50 dark:border-slate-800/80 bg-white`}
+            onError={handleImageError}
+            className={`${imgSizeClass} object-cover rounded-2xl shadow-md border border-slate-200/80 dark:border-slate-700/80 bg-[#071731]`}
           />
         ) : (
           renderFallbackSvg(imgSizeClass)
@@ -71,30 +89,30 @@ export const EduLogo: React.FC<EduLogoProps> = ({
   if (variant === "full") {
     return (
       <div className={`flex flex-col items-center text-center ${className}`}>
-        <div className="relative mb-2">
-          {!imgFailed ? (
+        <div className="relative mb-2 shrink-0">
+          {!allFailed ? (
             <img
-              src={logoSrc}
+              src={currentSrc}
               alt="Edu Library Logo"
               referrerPolicy="no-referrer"
-              onError={() => setImgFailed(true)}
-              className={`${sizeClasses.xl} object-cover rounded-2xl shadow-xl border border-slate-200/80 dark:border-slate-700/80 bg-white`}
+              onError={handleImageError}
+              className={`${sizeClasses.xl} object-cover rounded-3xl shadow-xl border-2 border-slate-200 dark:border-slate-700 bg-[#071731] p-1`}
             />
           ) : (
             renderFallbackSvg(sizeClasses.xl)
           )}
         </div>
-        <h1 className="text-xl sm:text-2xl font-black tracking-tight">
-          <span className="text-[#0d3b66] dark:text-sky-400">Edu </span>
-          <span className="text-[#2e9e42] dark:text-emerald-400">Library</span>
+        <h1 className="text-xl sm:text-2xl font-black tracking-tight flex items-center space-x-1.5">
+          <span className="text-[#0d2a58] dark:text-white">Edu</span>
+          <span className="text-[#0284c7] dark:text-[#38bdf8]">Library</span>
         </h1>
         {showSubtitle && (
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1 flex items-center space-x-1.5">
-            <span>Learn</span>
-            <span className="text-emerald-500 font-bold">•</span>
-            <span>Share</span>
-            <span className="text-emerald-500 font-bold">•</span>
-            <span>Grow</span>
+          <p className="text-[11px] font-bold text-slate-500 dark:text-sky-300/90 tracking-widest mt-1 flex items-center space-x-1.5 uppercase">
+            <span>LEARN</span>
+            <span className="text-sky-500 font-black">•</span>
+            <span>EXPLORE</span>
+            <span className="text-sky-500 font-black">•</span>
+            <span>GROW</span>
           </p>
         )}
       </div>
@@ -103,28 +121,28 @@ export const EduLogo: React.FC<EduLogoProps> = ({
 
   // Horizontal variant (Ideal for Header)
   return (
-    <div className={`flex items-center space-x-3 ${className}`}>
+    <div className={`flex items-center space-x-2.5 sm:space-x-3 shrink-0 ${className}`}>
       <div className="relative shrink-0">
-        {!imgFailed ? (
+        {!allFailed ? (
           <img
-            src={logoSrc}
+            src={currentSrc}
             alt="Edu Library Logo"
             referrerPolicy="no-referrer"
-            onError={() => setImgFailed(true)}
-            className={`${imgSizeClass} object-cover rounded-xl shadow-md border border-slate-200/60 dark:border-slate-800 bg-white p-0.5`}
+            onError={handleImageError}
+            className={`${imgSizeClass} object-cover rounded-xl sm:rounded-2xl shadow-md border border-slate-200/80 dark:border-slate-700/80 bg-[#071731] p-0.5`}
           />
         ) : (
           renderFallbackSvg(imgSizeClass)
         )}
       </div>
-      <div>
-        <div className="flex items-center space-x-1 text-base sm:text-lg font-black tracking-tight leading-none">
-          <span className="text-[#0d3b66] dark:text-sky-400">Edu</span>
-          <span className="text-[#2e9e42] dark:text-emerald-400">Library</span>
+      <div className="flex flex-col justify-center">
+        <div className="flex items-center space-x-1 text-base sm:text-lg font-black tracking-tight leading-tight">
+          <span className="text-[#0d2a58] dark:text-white">Edu</span>
+          <span className="text-[#0284c7] dark:text-[#38bdf8]">Library</span>
         </div>
         {showSubtitle && (
-          <p className="text-[10px] text-slate-500 dark:text-sky-300/80 font-bold tracking-wider uppercase mt-1">
-            Learn • Share • Grow
+          <p className="text-[9px] text-slate-500 dark:text-sky-300/80 font-extrabold tracking-wider uppercase leading-none mt-0.5">
+            LEARN • EXPLORE • GROW
           </p>
         )}
       </div>

@@ -373,7 +373,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
-                <EduLogo variant="icon" size="sm" />
+                <EduLogo variant="icon" size="md" />
                 <div>
                   <span className="font-bold text-xs block">
                     {lang === "bn" ? "Edu Library অ্যাপ সংস্করণ ও অটো আপডেট" : "Edu Library App & Auto Updates"}

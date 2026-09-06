@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { FileCard } from "../components/FileCard";
+import { EduLogo } from "../components/EduLogo";
 import { EduFile } from "../types";
 import {
   Search,
@@ -139,6 +140,32 @@ export const HomeView: React.FC<HomeViewProps> = ({ onSelectFile }) => {
 
   return (
     <div className="space-y-4 pb-20">
+
+      {/* Brand Welcome Banner with Official Logo */}
+      <div className={`p-3.5 sm:p-4 rounded-2xl border shadow-sm flex items-center justify-between gap-3 relative overflow-hidden ${
+        theme === "dark"
+          ? "bg-gradient-to-r from-[#0d1e38]/90 via-[#121a2d] to-[#0a2318]/90 border-slate-800 text-white"
+          : "bg-gradient-to-r from-sky-50 via-white to-emerald-50/70 border-sky-100/80 text-slate-900"
+      }`}>
+        <div className="flex items-center space-x-3 sm:space-x-4">
+          <EduLogo variant="icon" size="lg" className="shrink-0 drop-shadow-md" />
+          <div>
+            <div className="flex items-center space-x-2">
+              <h2 className="text-base sm:text-lg font-black tracking-tight leading-none text-slate-900 dark:text-white">
+                {lang === "bn" ? "এডু লাইব্রেরি" : "Edu Library"}
+              </h2>
+              <span className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                {lang === "bn" ? "ডিজিটাল লাইব্রেরি" : "Digital Library"}
+              </span>
+            </div>
+            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-300 mt-1 font-medium leading-tight">
+              {lang === "bn"
+                ? "এসএসসি, এইচএসসি, অনার্স, ডিগ্রি ও চাকরির বিশ্বস্ত নোটস এবং এআই স্টাডি সহায়তা।"
+                : "Lecture notes, previous exams & AI study assistant for Bangladeshi students."}
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Global Search and Filter Bar */}
       <div className={`p-3 sm:p-4 rounded-2xl border shadow-sm space-y-2.5 ${

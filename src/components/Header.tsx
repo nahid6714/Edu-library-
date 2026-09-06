@@ -39,15 +39,15 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuthModal, onLogoClick }) 
           : "bg-white/95 border-slate-200 text-slate-900"
       }`}
     >
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
         
         {/* Website Logo & Name */}
-        <div onClick={onLogoClick} className="cursor-pointer">
+        <div onClick={onLogoClick} className="cursor-pointer shrink-0">
           <EduLogo variant="horizontal" size="md" />
         </div>
 
         {/* Action Controls: Theme Toggle, Language Switcher, User Auth, Notification Bell */}
-        <div className="flex items-center space-x-2 sm:space-x-2.5">
+        <div className="flex items-center space-x-1 sm:space-x-2 shrink-0">
           
           {/* Theme Toggle Button (Light / Dark) */}
           <button
