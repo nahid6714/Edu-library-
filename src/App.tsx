@@ -11,7 +11,11 @@ import { FileDetailsModal } from "./components/FileDetailsModal";
 import { PdfViewerModal } from "./components/PdfViewerModal";
 import { AiDocumentScannerModal } from "./components/AiDocumentScannerModal";
 import { AuthModal } from "./components/AuthModal";
-import { EduFile } from "./types";
+import { AppUpdateModal } from "./components/AppUpdateModal";
+import { AppUpdateBanner } from "./components/AppUpdateBanner";
+import { EduFile, AppUpdateInfo } from "./types";
+import { checkAppUpdate, isUpdateDismissed } from "./services/updateService";
+
 import {
   Home,
   FileText,
@@ -49,9 +53,30 @@ function MainApp() {
   const [isAiScannerOpen, setIsAiScannerOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
+  // GitHub In-App Auto Update State
+  const [appUpdateInfo, setAppUpdateInfo] = useState<AppUpdateInfo | null>(null);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [isBannerDismissed, setIsBannerDismissed] = useState(false);
+
   // Double Back Press Exit Confirmation State
   const [showExitToast, setShowExitToast] = useState(false);
   const lastBackPressRef = useRef<number>(0);
+
+  // Auto-check GitHub for updates on app start
+  useEffect(() => {
+    checkAppUpdate().then((info) => {
+      if (info && info.hasUpdate) {
+        setAppUpdateInfo(info);
+        // If not dismissed within last 24h, show prompt
+        if (!isUpdateDismissed(info.latestVersion)) {
+          const timer = setTimeout(() => {
+            setIsUpdateModalOpen(true);
+          }, 1200);
+          return () => clearTimeout(timer);
+        }
+      }
+    });
+  }, []);
 
   // History & Hardware Back Button Handler
   const isPopstateRef = useRef(false);
@@ -66,7 +91,7 @@ function MainApp() {
     if (selectedDeptId) depth += 1;
     if (selectedSemesterId) depth += 1;
     if (selectedSubjectId) depth += 1;
-    if (pdfReaderFile || selectedFile || isAiScannerOpen || isAuthModalOpen) depth += 1;
+    if (pdfReaderFile || selectedFile || isAiScannerOpen || isAuthModalOpen || isUpdateModalOpen) depth += 1;
     return depth;
   };
 
@@ -82,7 +107,9 @@ function MainApp() {
 
       isPopstateRef.current = true;
 
-      if (pdfReaderFile) {
+      if (isUpdateModalOpen) {
+        setIsUpdateModalOpen(false);
+      } else if (pdfReaderFile) {
         setPdfReaderFile(null);
       } else if (selectedFile) {
         setSelectedFile(null);
@@ -120,6 +147,7 @@ function MainApp() {
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, [
+    isUpdateModalOpen,
     pdfReaderFile,
     selectedFile,
     isAiScannerOpen,
@@ -134,6 +162,7 @@ function MainApp() {
     setSelectedDeptId,
     setSelectedLevelId,
   ]);
+
 
   // Sync History Stack with Depth Changes
   useEffect(() => {
@@ -183,6 +212,15 @@ function MainApp() {
         }}
       />
 
+      {/* In-App Auto Update Banner from GitHub Releases */}
+      {appUpdateInfo && appUpdateInfo.hasUpdate && !isBannerDismissed && (
+        <AppUpdateBanner
+          updateInfo={appUpdateInfo}
+          onOpenModal={() => setIsUpdateModalOpen(true)}
+          onDismiss={() => setIsBannerDismissed(true)}
+        />
+      )}
+
       {/* Prominent Notice Banner placed at the top of the app */}
       <div className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-2">
         <NoticeBanner
@@ -210,7 +248,13 @@ function MainApp() {
         {activeTab === "notifications" && <NotificationsView />}
 
         {activeTab === "profile" && (
-          <ProfileView onOpenPdfReader={(f) => setPdfReaderFile(f)} />
+          <ProfileView
+            onOpenPdfReader={(f) => setPdfReaderFile(f)}
+            onOpenUpdateModal={(update) => {
+              setAppUpdateInfo(update);
+              setIsUpdateModalOpen(true);
+            }}
+          />
         )}
       </main>
 
@@ -235,6 +279,14 @@ function MainApp() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
       />
+
+      {/* In-App Auto Update Modal */}
+      <AppUpdateModal
+        updateInfo={appUpdateInfo}
+        isOpen={isUpdateModalOpen}
+        onClose={() => setIsUpdateModalOpen(false)}
+      />
+
 
       {/* Double Back Press Exit Toast */}
       {showExitToast && (

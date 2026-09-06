@@ -57,6 +57,7 @@ jobs:
           mkdir -p release-assets
           cp android/app/build/outputs/apk/debug/app-debug.apk release-assets/EduLibrary-latest.apk
           cp android/app/build/outputs/apk/debug/app-debug.apk release-assets/EduLibrary-v1.0.apk
+          cp version.json release-assets/version.json || true
 
       - name: Upload Android APK Artifact
         uses: actions/upload-artifact@v4
@@ -98,6 +99,7 @@ jobs:
           files: |
             release-assets/EduLibrary-latest.apk
             release-assets/EduLibrary-v1.0.apk
+            release-assets/version.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

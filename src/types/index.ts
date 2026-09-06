@@ -131,3 +131,15 @@ export interface RecycleItem {
   expiresDate: string; // 15 days calculation
   daysRemaining: number;
 }
+
+export interface AppUpdateInfo {
+  hasUpdate: boolean;
+  currentVersion: string;
+  latestVersion: string;
+  releaseTitle: string;
+  releaseNotes: string;
+  apkDownloadUrl: string;
+  publishedAt: string;
+  htmlUrl: string;
+}
+
