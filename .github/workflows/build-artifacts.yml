@@ -183,7 +183,7 @@ jobs:
               version: process.env.RELEASE_VERSION,
               versionCode: Number(process.env.VERSION_CODE),
               title: `Edu Library ${process.env.RELEASE_TAG}`,
-              releaseNotes: "নতুন ফিচার, বাগ ফিক্স ও পারফরম্যান্স উন্নতি।",
+              releaseNotes: "🧪 আপডেট সিস্টেম পরীক্ষার নতুন রিলিজ। অটো-আপডেট, signed APK এবং version detection পরীক্ষা করা হচ্ছে।",
               apkDownloadUrl: `https://github.com/${process.env.REPOSITORY}/releases/download/${process.env.RELEASE_TAG}/EduLibrary-latest.apk`,
               htmlUrl: `https://github.com/${process.env.REPOSITORY}/releases/tag/${process.env.RELEASE_TAG}`,
               publishedAt: new Date().toISOString()

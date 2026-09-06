@@ -431,7 +431,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   </div>
                 )}
               </div>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed">
+              <div className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-2.5 py-2 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+               <Sparkles className="w-3.5 h-3.5 shrink-0" />
+               <span>
+                 {lang === "bn"
+                   ? "🆕 নতুন আপডেট: অটো-আপডেট সিস্টেমের পরীক্ষামূলক রিলিজ সফলভাবে প্রস্তুত।"
+                   : "🆕 New update: experimental auto-update system release is ready."}
+               </span>
+             </div>
+
+             <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed">
                 {lang === "bn"
                   ? "স্ট্যাটিক version.json এবং গিটহাব রিলিজের মাধ্যমে চেক করা হয়। কোনো API Limit শেষ হওয়ার ঝুঁকি নেই, কোটি ব্যবহারকারীও আনলিমিটেড সময়ে রিয়েল-টাইম আপডেট পাবেন।"
                   : "Checked via static version.json and GitHub Releases. No API rate-limit restrictions—unlimited real-time updates for all users."}
