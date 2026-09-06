@@ -49,6 +49,12 @@ jobs:
           echo "version_code=${BUILD_NUM}" >> "$GITHUB_OUTPUT"
           echo "Generated version: ${VER}, tag: ${TAG}, versionCode: ${BUILD_NUM}"
 
+      - name: Validate package.json and package-lock.json
+        run: |
+          echo "Checking that package.json and package-lock.json are in sync..."
+          npm ci --dry-run --ignore-scripts
+          echo "Dependency lock check passed."
+
       - name: Install Dependencies
         run: npm ci
 
