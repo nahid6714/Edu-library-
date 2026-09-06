@@ -1,15 +1,18 @@
-name: Build & Upload App & Android APK Artifacts
+name: Build & Auto-Release Android APK
 
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+    tags:
+      - 'v*'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
-    name: Build Android APK & Web App
+    name: Build & Release Android APK
     runs-on: ubuntu-latest
 
     steps:
@@ -42,18 +45,24 @@ jobs:
       - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Build Android Debug APK
+      - name: Build Android APK
         run: |
           cd android
           gradle wrapper --gradle-version 8.13
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Upload Android APK Artifact (Installable on Phone)
+      - name: Prepare Release Assets
+        run: |
+          mkdir -p release-assets
+          cp android/app/build/outputs/apk/debug/app-debug.apk release-assets/EduLibrary-latest.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk release-assets/EduLibrary-v1.0.apk
+
+      - name: Upload Android APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: EduLibrary-Android-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: release-assets/EduLibrary-latest.apk
           retention-days: 30
 
       - name: Upload Web Dist Artifact
@@ -62,3 +71,33 @@ jobs:
           name: EduLibrary-WebApp-Dist
           path: dist/
           retention-days: 30
+
+      - name: Publish to GitHub Releases
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && format('Edu Library {0}', github.ref_name) || 'Edu Library - Official Android APK (v1.0.0)' }}
+          body: |
+            ## 📱 Edu Library - Android App (Auto Release)
+            
+            স্বয়ংক্রিয়ভাবে তৈরি হওয়া অ্যান্ড্রয়েড অ্যাপ রিলিজ (Auto-built APK via GitHub Actions).
+            
+            ### ⬇️ সরাসরি ডাউনলোড লিংক:
+            - **[EduLibrary-latest.apk](https://github.com/${{ github.repository }}/releases/download/${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}/EduLibrary-latest.apk)**
+            - **[EduLibrary-v1.0.apk](https://github.com/${{ github.repository }}/releases/download/${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}/EduLibrary-v1.0.apk)**
+
+            ---
+            ### 🛠️ যেভাবে ফোনে ইনস্টল করবেন:
+            1. উপরের লিঙ্কে ক্লিক করে **`EduLibrary-latest.apk`** ডাউনলোড করুন।
+            2. ফাইলটিতে ট্যাপ করে **Install** এ চাপুন।
+            3. যদি "Install unknown apps" সতর্কবার্তা দেখায়, তবে Settings থেকে আপনার ব্রাউজারটিকে অনুমতি (Allow from this source) দিন।
+            4. ইনস্টল সম্পন্ন হলে সরাসরি আপনার ফোনে Edu Library অ্যাপটি চালু করুন!
+          draft: false
+          prerelease: false
+          files: |
+            release-assets/EduLibrary-latest.apk
+            release-assets/EduLibrary-v1.0.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
