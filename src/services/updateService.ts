@@ -3,7 +3,7 @@ import { AppUpdateInfo } from "../types";
 // The CI build injects VITE_APP_VERSION. Local/dev builds fall back to 1.0.0.
 export const CURRENT_APP_VERSION =
   (import.meta.env.VITE_APP_VERSION || "1.0.0").replace(/^v/i, "").trim();
-export const DEFAULT_GITHUB_REPO = "mdnahidislam6714/edu-library";
+export const DEFAULT_GITHUB_REPO = "nahid6714/Edu-library-";
 
 export function compareVersions(remoteVer: string, currentVer: string): number {
   const cleanRemote = remoteVer.replace(/^v/i, "").trim();

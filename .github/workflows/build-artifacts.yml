@@ -96,6 +96,25 @@ jobs:
           mkdir -p android/keystore
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/keystore/release.keystore
 
+      - name: Repair Gradle Wrapper
+        run: |
+          cd android
+          gradle wrapper --gradle-version 8.13 --distribution-type bin --no-daemon
+          chmod +x gradlew
+
+      - name: Persist Repaired Gradle Wrapper
+        run: |
+          if git diff --quiet -- android/gradle/wrapper/gradle-wrapper.jar android/gradle/wrapper/gradle-wrapper.properties android/gradlew android/gradlew.bat; then
+            echo "Gradle wrapper is already up to date."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android/gradle/wrapper/gradle-wrapper.jar android/gradle/wrapper/gradle-wrapper.properties android/gradlew android/gradlew.bat
+          git commit -m "chore: repair Gradle wrapper [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
+
       - name: Build Signed Release APK
         env:
           APP_VERSION: ${{ steps.vars.outputs.version }}
@@ -106,7 +125,7 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           cd android
-          ./gradlew clean assembleRelease --no-daemon --stacktrace
+          gradle clean assembleRelease --no-daemon --stacktrace
 
       - name: Prepare Release Assets
         env:
