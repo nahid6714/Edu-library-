@@ -66,13 +66,18 @@ jobs:
       - name: Build Android APK
         run: |
           cd android
+          # Delete any corrupted gradle-wrapper.jar checked out from git
+          rm -f gradle/wrapper/gradle-wrapper.jar
+          
+          # Regenerate clean wrapper using the installed Gradle 8.13
+          gradle wrapper --gradle-version 8.13 --distribution-type bin || true
           chmod +x gradlew || true
-          if [ -f gradlew ]; then
-            ./gradlew assembleDebug
+          
+          # Build APK with gradlew, or fallback directly to gradle CLI
+          if [ -f gradle/wrapper/gradle-wrapper.jar ]; then
+            ./gradlew assembleDebug --no-daemon --stacktrace || gradle assembleDebug --no-daemon --stacktrace
           else
-            gradle wrapper --gradle-version 8.13
-            chmod +x gradlew
-            ./gradlew assembleDebug
+            gradle assembleDebug --no-daemon --stacktrace
           fi
 
       - name: Prepare Release Assets
