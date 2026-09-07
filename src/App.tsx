@@ -10,6 +10,7 @@ import { ProfileView } from "./views/ProfileView";
 import { FileDetailsModal } from "./components/FileDetailsModal";
 import { PdfViewerModal } from "./components/PdfViewerModal";
 import { AiDocumentScannerModal } from "./components/AiDocumentScannerModal";
+import { AiStudyAssistantModal } from "./components/AiStudyAssistantModal";
 import { AuthModal } from "./components/AuthModal";
 import { AppUpdateModal } from "./components/AppUpdateModal";
 import { AppUpdateBanner } from "./components/AppUpdateBanner";
@@ -23,6 +24,9 @@ import {
   Bell,
   User,
   LogOut,
+  Sparkles,
+  FileScan,
+  MessageCircle,
 } from "lucide-react";
 
 function MainApp() {
@@ -51,6 +55,8 @@ function MainApp() {
 
   // Gemini Modals & Auth Modal
   const [isAiScannerOpen, setIsAiScannerOpen] = useState(false);
+  const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+  const [isAiMenuOpen, setIsAiMenuOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // In-App Auto Update State
@@ -133,7 +139,7 @@ function MainApp() {
     if (selectedDeptId) depth += 1;
     if (selectedSemesterId) depth += 1;
     if (selectedSubjectId) depth += 1;
-    if (pdfReaderFile || selectedFile || isAiScannerOpen || isAuthModalOpen || isUpdateModalOpen) depth += 1;
+    if (pdfReaderFile || selectedFile || isAiScannerOpen || isAiChatOpen || isAiMenuOpen || isAuthModalOpen || isUpdateModalOpen) depth += 1;
     return depth;
   };
 
@@ -157,6 +163,10 @@ function MainApp() {
         setSelectedFile(null);
       } else if (isAiScannerOpen) {
         setIsAiScannerOpen(false);
+      } else if (isAiChatOpen) {
+        setIsAiChatOpen(false);
+      } else if (isAiMenuOpen) {
+        setIsAiMenuOpen(false);
       } else if (isAuthModalOpen) {
         setIsAuthModalOpen(false);
       } else if (selectedSubjectId) {
@@ -193,6 +203,8 @@ function MainApp() {
     pdfReaderFile,
     selectedFile,
     isAiScannerOpen,
+    isAiChatOpen,
+    isAiMenuOpen,
     isAuthModalOpen,
     selectedSubjectId,
     selectedSemesterId,
@@ -317,6 +329,11 @@ function MainApp() {
         onClose={() => setIsAiScannerOpen(false)}
       />
 
+      <AiStudyAssistantModal
+        isOpen={isAiChatOpen}
+        onClose={() => setIsAiChatOpen(false)}
+      />
+
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
@@ -329,6 +346,43 @@ function MainApp() {
         onClose={() => setIsUpdateModalOpen(false)}
       />
 
+
+      {/* Floating AI Assistant Button — opens a small chooser for the two AI features */}
+      <div className="fixed right-4 bottom-24 z-40 flex flex-col items-end gap-2">
+        {isAiMenuOpen && (
+          <div className="flex flex-col items-end gap-2 mb-1 animate-in fade-in slide-in-from-bottom-2">
+            <button
+              onClick={() => {
+                setIsAiMenuOpen(false);
+                setIsAiChatOpen(true);
+              }}
+              className="flex items-center gap-2 pl-4 pr-3 py-2.5 rounded-full bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs font-bold shadow-xl border border-slate-200 dark:border-slate-700 hover:scale-105 transition-transform"
+            >
+              <span>{lang === "bn" ? "এআই স্টাডি অ্যাসিস্ট্যান্ট" : "AI Study Assistant"}</span>
+              <MessageCircle className="w-4 h-4 text-emerald-600" />
+            </button>
+            <button
+              onClick={() => {
+                setIsAiMenuOpen(false);
+                setIsAiScannerOpen(true);
+              }}
+              className="flex items-center gap-2 pl-4 pr-3 py-2.5 rounded-full bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-xs font-bold shadow-xl border border-slate-200 dark:border-slate-700 hover:scale-105 transition-transform"
+            >
+              <span>{lang === "bn" ? "ডকুমেন্ট স্ক্যানার" : "Document Scanner"}</span>
+              <FileScan className="w-4 h-4 text-emerald-600" />
+            </button>
+          </div>
+        )}
+        <button
+          onClick={() => setIsAiMenuOpen((prev) => !prev)}
+          aria-label={lang === "bn" ? "এআই ফিচার মেনু" : "AI features menu"}
+          className={`w-14 h-14 rounded-full bg-emerald-700 hover:bg-emerald-600 text-white shadow-2xl flex items-center justify-center border-2 border-emerald-400/40 transition-transform ${
+            isAiMenuOpen ? "rotate-45" : ""
+          }`}
+        >
+          <Sparkles className="w-6 h-6" />
+        </button>
+      </div>
 
       {/* Double Back Press Exit Toast */}
       {showExitToast && (

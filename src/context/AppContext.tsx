@@ -441,11 +441,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const toggleFavorite = (fileId: string) => {
     setFavorites((prev) => {
       const isFav = prev.includes(fileId);
-      const updated = isFav ? prev.filter((id) => id !== fileId) : [...prev, fileId];
-      setUser((u) => ({ ...u, favouriteCount: updated.length }));
-      return updated;
+      return isFav ? prev.filter((id) => id !== fileId) : [...prev, fileId];
     });
   };
+
+  // Keep the profile's favourite count in sync with the favorites list.
+  // (Derived from `favorites` via effect rather than inside the setFavorites
+  // updater above, since updater functions must stay pure/side-effect-free.)
+  useEffect(() => {
+    setUser((prev) =>
+      prev.favouriteCount === favorites.length
+        ? prev
+        : { ...prev, favouriteCount: favorites.length }
+    );
+  }, [favorites]);
 
   const issueWarning = (userId: string, reason: string) => {
     if (userId === user.id) {

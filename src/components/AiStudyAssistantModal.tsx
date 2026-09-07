@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useApp } from "../context/AppContext";
+import { callAiBackend, AiUnavailableError, getAiUnavailableMessage } from "../services/aiClient";
 import {
   Sparkles,
   Send,
@@ -90,22 +91,16 @@ export const AiStudyAssistantModal: React.FC<AiStudyAssistantModalProps> = ({
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/gemini/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await callAiBackend<{ text?: string }>({
+        path: "/api/gemini/chat",
+        body: {
           model: modelType,
           messages: newHistory.map((m) => ({ role: m.role, content: m.content })),
           systemInstruction:
             "You are an expert AI Study Tutor for Bangladeshi students. Answer in clear Bengali or English depending on user prompt. Structure answers with bullet points, formulas, and step-by-step reasoning.",
-        }),
+        },
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to get response from AI model");
-      }
-
-      const data = await response.json();
       const assistantMsg: Message = {
         id: `msg_a_${Date.now()}`,
         role: "assistant",
@@ -118,7 +113,10 @@ export const AiStudyAssistantModal: React.FC<AiStudyAssistantModalProps> = ({
       const errorMsg: Message = {
         id: `msg_err_${Date.now()}`,
         role: "assistant",
-        content: "দুঃখিত, কোনো সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন। (" + (err.message || "Server Error") + ")",
+        content:
+          err instanceof AiUnavailableError
+            ? getAiUnavailableMessage(lang)
+            : "দুঃখিত, কোনো সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন। (" + (err.message || "Server Error") + ")",
       };
       setMessages((prev) => [...prev, errorMsg]);
     } finally {
@@ -135,15 +133,11 @@ export const AiStudyAssistantModal: React.FC<AiStudyAssistantModalProps> = ({
 
     try {
       setPlayingMsgId(msgId);
-      const response = await fetch("/api/gemini/tts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: text.substring(0, 800), voiceName: "Kore" }),
+      const data = await callAiBackend<{ audioBase64?: string }>({
+        path: "/api/gemini/tts",
+        body: { text: text.substring(0, 800), voiceName: "Kore" },
       });
-
-      if (!response.ok) throw new Error("TTS failed");
-
-      const data = await response.json();
+      if (!data.audioBase64) throw new Error("TTS failed");
       const audioUrl = `data:audio/wav;base64,${data.audioBase64}`;
       const newAudio = new Audio(audioUrl);
       setAudioObj(newAudio);

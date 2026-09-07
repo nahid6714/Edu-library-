@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
+import { callAiBackend, AiUnavailableError, getAiUnavailableMessage } from "../services/aiClient";
 import {
   FileScan,
   X,
@@ -64,24 +65,21 @@ export const AiDocumentScannerModal: React.FC<AiDocumentScannerModalProps> = ({
       setIsAnalyzing(true);
       setAnalysisResult(null);
 
-      const response = await fetch("/api/gemini/analyze-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await callAiBackend<{ text?: string }>({
+        path: "/api/gemini/analyze-image",
+        body: {
           imageBase64: selectedImage,
           prompt: customPrompt || "Analyze this study note/question paper photo using gemini-3.1-pro-preview. Summarize key formulas, solve equations, and explain the core educational topics clearly in Bengali and English.",
-        }),
+        },
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to analyze image");
-      }
-
-      const data = await response.json();
       setAnalysisResult(data.text || "Analysis finished without text output.");
     } catch (err: any) {
       console.error("Image Analysis error:", err);
-      setAnalysisResult("Error analyzing image: " + (err.message || "Server Error"));
+      if (err instanceof AiUnavailableError) {
+        setAnalysisResult(getAiUnavailableMessage(lang));
+      } else {
+        setAnalysisResult("Error analyzing image: " + (err.message || "Server Error"));
+      }
     } finally {
       setIsAnalyzing(false);
     }
