@@ -126,7 +126,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           lang === "bn"
             ? "✨ নতুন বৈশিষ্ট্য:\n• স্বয়ংক্রিয় এপিকে রিলিজ সিস্টেম\n• অ্যাপের মধ্যে সরাসরি অটো-আপডেট অপশন\n• উন্নত পারফরম্যান্স ও দ্রুত ফাইল ওপেনিং\n• ডার্ক মোড এবং রিসাইকেল বিন ফিক্স"
             : "✨ What's New:\n• Automatic APK Release System\n• In-app auto update notifications\n• Improved performance & faster PDF opening\n• Dark mode & recycle bin enhancements",
-        apkDownloadUrl: `https://github.com/${getStoredGithubRepo()}/releases`,
+        apkDownloadUrl: "",
         publishedAt: new Date().toISOString(),
         htmlUrl: `https://github.com/${getStoredGithubRepo()}/releases`,
       });

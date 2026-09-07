@@ -74,10 +74,35 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+function readStoredJson<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return parsed as T;
+  } catch {
+    localStorage.removeItem(key);
+    return fallback;
+  }
+}
+
+function getValidRecycleBin(items: RecycleItem[]): RecycleItem[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return items
+    .map((item) => {
+      const expiry = new Date(`${item.expiresDate}T00:00:00`);
+      const daysRemaining = Number.isNaN(expiry.getTime())
+        ? 0
+        : Math.max(0, Math.ceil((expiry.getTime() - today.getTime()) / 86400000));
+      return { ...item, daysRemaining };
+    })
+    .filter((item) => item.daysRemaining > 0);
+}
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem("edu_user");
-    return saved ? JSON.parse(saved) : initialUserProfile;
+    return readStoredJson("edu_user", initialUserProfile);
   });
 
   const [role, setRoleState] = useState<Role>(user.role || "user");
@@ -91,24 +116,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [eduLevels, setEduLevels] = useState<EduLevel[]>(() => {
-    const saved = localStorage.getItem("edu_levels");
-    return saved ? JSON.parse(saved) : initialEduLevels;
+    return readStoredJson("edu_levels", initialEduLevels);
   });
 
   const [approvedFiles, setApprovedFiles] = useState<EduFile[]>(() => {
-    const saved = localStorage.getItem("edu_approved_files");
-    return saved ? JSON.parse(saved) : initialApprovedFiles;
+    return readStoredJson("edu_approved_files", initialApprovedFiles);
   });
 
   const [pendingFiles, setPendingFiles] = useState<EduFile[]>(() => {
-    const saved = localStorage.getItem("edu_pending_files");
-    return saved ? JSON.parse(saved) : initialPendingFiles;
+    return readStoredJson("edu_pending_files", initialPendingFiles);
   });
 
   const [downloadedFiles, setDownloadedFiles] = useState<DownloadedFile[]>(() => {
-    const saved = localStorage.getItem("edu_downloads");
+    const saved = readStoredJson<DownloadedFile[] | null>("edu_downloads", null);
     return saved
-      ? JSON.parse(saved)
+      ? saved
       : [
           {
             fileId: "file_101",
@@ -125,21 +147,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [recycleBin, setRecycleBin] = useState<RecycleItem[]>(() => {
-    const saved = localStorage.getItem("edu_recycle_bin");
-    return saved ? JSON.parse(saved) : [];
+    return getValidRecycleBin(readStoredJson<RecycleItem[]>("edu_recycle_bin", []));
   });
 
   const [notices, setNotices] = useState<Notice[]>(() => {
-    const saved = localStorage.getItem("edu_notices");
-    return saved ? JSON.parse(saved) : initialNotices;
+    return readStoredJson("edu_notices", initialNotices);
   });
 
   const [reports, setReports] = useState<FileReport[]>(() => {
-    const saved = localStorage.getItem("edu_reports");
-    return saved ? JSON.parse(saved) : initialReports;
+    return readStoredJson("edu_reports", initialReports);
   });
 
-  const [notifications, setNotifications] = useState<UserNotification[]>([
+  const [notifications, setNotifications] = useState<UserNotification[]>(() =>
+    readStoredJson<UserNotification[]>("edu_notifications", [
     {
       id: "notif_1",
       userId: user.id,
@@ -149,9 +169,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       read: false,
       date: "2026-08-01 09:00",
     },
-  ]);
+  ]));
 
-  const [favorites, setFavorites] = useState<string[]>(["file_101", "file_102"]);
+  const [favorites, setFavorites] = useState<string[]>(() =>
+    readStoredJson<string[]>("edu_favorites", ["file_101", "file_102"])
+  );
 
   // Category drilldown state
   const [selectedLevelId, setSelectedLevelId] = useState<string | null>(null);
@@ -205,6 +227,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem("edu_levels", JSON.stringify(eduLevels));
   }, [eduLevels]);
+
+  useEffect(() => {
+    localStorage.setItem("edu_notifications", JSON.stringify(notifications));
+  }, [notifications]);
+
+  useEffect(() => {
+    localStorage.setItem("edu_favorites", JSON.stringify(favorites));
+  }, [favorites]);
+
+  // Keep recycle-bin countdown accurate and remove expired items.
+  useEffect(() => {
+    const refreshRecycleBin = () => {
+      setRecycleBin((prev) => getValidRecycleBin(prev));
+    };
+    refreshRecycleBin();
+    const timer = window.setInterval(refreshRecycleBin, 60 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const setUserRole = (newRole: Role) => {
     setRoleState(newRole);
@@ -349,14 +389,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
 
       setDownloadedFiles((prev) => [newDownload, ...prev]);
+
+      // Only count a download when the file was actually added to downloads.
+      setApprovedFiles((prev) =>
+        prev.map((f) => (f.id === file.id ? { ...f, downloadCount: f.downloadCount + 1 } : f))
+      );
+      setUser((prev) => ({ ...prev, downloadCount: prev.downloadCount + 1 }));
     }
-
-    // Increment download count in approved files
-    setApprovedFiles((prev) =>
-      prev.map((f) => (f.id === file.id ? { ...f, downloadCount: f.downloadCount + 1 } : f))
-    );
-
-    setUser((prev) => ({ ...prev, downloadCount: prev.downloadCount + 1 }));
   };
 
   const deleteDownload = (fileId: string) => {

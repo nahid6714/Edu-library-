@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useApp } from "../context/AppContext";
 import { AppUpdateInfo } from "../types";
 import { dismissUpdate } from "../services/updateService";
@@ -33,13 +33,29 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({
 }) => {
   const { lang, theme } = useApp();
   const [downloadInitiated, setDownloadInitiated] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setDownloadInitiated(false);
+      setDownloadError(null);
+    }
+  }, [isOpen, updateInfo?.latestVersion]);
 
   if (!isOpen || !updateInfo) return null;
 
   const handleDownload = async () => {
-    if (!updateInfo.apkDownloadUrl) return;
+    if (!updateInfo.apkDownloadUrl) {
+      setDownloadError(
+        lang === "bn"
+          ? "এই আপডেটের APK লিংক পাওয়া যায়নি।"
+          : "The APK link for this update is unavailable."
+      );
+      return;
+    }
 
     setDownloadInitiated(true);
+    setDownloadError(null);
 
     // Native Android: download the APK inside the app and open the
     // Android package installer directly. This avoids opening GitHub/browser.
@@ -51,12 +67,22 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({
 
         if (result?.status === "permission_required") {
           setDownloadInitiated(false);
+          setDownloadError(
+            lang === "bn"
+              ? "ইনস্টল করার অনুমতি চালু করে আবার Update চাপুন।"
+              : "Allow app installs from this source, then tap Update again."
+          );
           return;
         }
         return;
       } catch (error) {
         console.error("In-app update failed:", error);
         setDownloadInitiated(false);
+        setDownloadError(
+          lang === "bn"
+            ? "আপডেট ডাউনলোড করা যায়নি। ইন্টারনেট সংযোগ ও APK লিংক পরীক্ষা করুন।"
+            : "Update download failed. Check your internet connection and APK link."
+        );
       }
     }
 
@@ -172,13 +198,17 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({
           </div>
 
           {/* Download notice alert */}
-          {downloadInitiated ? (
+          {downloadError ? (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs">
+              {downloadError}
+            </div>
+          ) : downloadInitiated ? (
             <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs flex items-center space-x-2 animate-fade-in">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>
                 {lang === "bn"
-                  ? "ডাউনলোড শুরু হয়েছে! ডাউনলোড সম্পন্ন হলে নোটিফিকেশন বার থেকে ফাইলটি ওপেন করে ইনস্টল করুন।"
-                  : "Download initiated! Open the file from your notifications bar once finished to install."}
+                  ? "আপডেট ফাইল প্রস্তুত করা হচ্ছে… শেষ হলে Android-এর Install অপশন আসবে।"
+                  : "Preparing the update… Android will show the Install option when ready."}
               </span>
             </div>
           ) : (
@@ -197,7 +227,8 @@ export const AppUpdateModal: React.FC<AppUpdateModalProps> = ({
             <button
               id="btn-update-now"
               onClick={handleDownload}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 active:scale-[0.99] text-white font-bold text-sm shadow-lg shadow-sky-500/25 flex items-center justify-center space-x-2 transition cursor-pointer"
+              disabled={downloadInitiated}
+              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 active:scale-[0.99] text-white font-bold text-sm shadow-lg shadow-sky-500/25 flex items-center justify-center space-x-2 transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <DownloadCloud className="w-4 h-4" />
               <span>
