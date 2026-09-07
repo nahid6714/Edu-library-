@@ -11,6 +11,3 @@ coverage/
 android/keystore/
 *.jks
 *.keystore
-
-# Capacitor generated web assets
-android/app/src/main/assets/public/
